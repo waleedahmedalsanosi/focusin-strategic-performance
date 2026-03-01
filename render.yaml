@@ -1,0 +1,24 @@
+# render.yaml – Render.com deployment configuration
+# Docs: https://render.com/docs/blueprint-spec
+#
+# This deploys FocusIn as a single Web Service:
+#   - Build: installs dependencies + builds the Vite frontend
+#   - Start: runs the Express server in production mode
+#   - Express serves both the REST API (/api/*) and the React SPA (static files)
+
+services:
+  - type: web
+    name: focusin-strategic-performance
+    runtime: node
+    region: oregon          # closest free region; change to frankfurt for EU
+    plan: free              # Render free tier (spins down after 15 min inactivity)
+    branch: main
+
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: GEMINI_API_KEY
+        sync: false         # Set this manually in Render dashboard → Environment

@@ -1,11 +1,35 @@
+/**
+ * db.ts – SQLite database connection and schema initialisation.
+ *
+ * Uses better-sqlite3 for synchronous, zero-config SQLite access.
+ * The database file is stored at /data/focusin.db (relative to the project root).
+ * The /data directory is created automatically if it does not exist.
+ *
+ * Pragmas applied:
+ *  - WAL mode     → faster concurrent reads, safer writes
+ *  - Foreign keys → enforces referential integrity (CASCADE deletes)
+ *
+ * Schema overview:
+ *  users        – registered accounts (email + hashed password)
+ *  sessions     – active session tokens (FK → users, CASCADE delete on logout)
+ *  kpis         – Key Performance Indicators per user
+ *  bsc_items    – Balanced Scorecard items (stored flat, grouped by perspective in the frontend)
+ *  initiatives  – strategic initiatives with progress/budget tracking
+ *  strategies   – high-level strategic plans
+ *  departments  – org chart nodes (self-referential tree via parent_id)
+ */
+
 import Database from 'better-sqlite3';
-import { mkdirSync, } from 'fs';
+import { mkdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/** Absolute path to the SQLite database file. */
 const DB_PATH = join(__dirname, '..', 'data', 'focusin.db');
 
+// Ensure the /data directory exists before opening the database.
 mkdirSync(dirname(DB_PATH), { recursive: true });
 
 const db = new Database(DB_PATH);
@@ -13,6 +37,7 @@ const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
+// Create all tables if they don't already exist (safe to run on every startup).
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
@@ -23,6 +48,7 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now'))
   );
 
+  -- Sessions store opaque UUID tokens; deleted automatically when the user is deleted.
   CREATE TABLE IF NOT EXISTS sessions (
     token TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -41,6 +67,7 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now'))
   );
 
+  -- perspective values: 'financial' | 'customer' | 'internal' | 'learning'
   CREATE TABLE IF NOT EXISTS bsc_items (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -75,6 +102,7 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now'))
   );
 
+  -- parent_id is NULL for root-level departments.
   CREATE TABLE IF NOT EXISTS departments (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

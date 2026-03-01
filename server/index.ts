@@ -1,10 +1,29 @@
+/**
+ * FocusIn – Strategic Performance Management
+ * Express REST API Server
+ *
+ * Handles:
+ *  - Authentication  (signup / signin / signout / me / profile update)
+ *  - KPIs            (CRUD)
+ *  - Balanced Scorecard items (CRUD)
+ *  - Initiatives     (CRUD)
+ *  - Strategies      (CRUD)
+ *  - Departments     (CRUD)
+ *  - AI Chat         (Gemini 2.0 Flash)
+ *  - Static file serving for the Vite production build
+ */
+
 import express from 'express';
 import { createHash, randomUUID } from 'crypto';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import { config } from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import db from './db.js';
 
 config();
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 app.use(express.json());
@@ -404,9 +423,24 @@ function seedUserData(userId: string) {
   );
 }
 
+// ─── Static Files (Production) ────────────────────────────────────────────────
+// In production, Express serves the Vite-built React app.
+// The Vite build outputs to /dist (one level above /server).
+// Any non-/api path falls through to index.html for client-side routing.
+
+if (process.env.NODE_ENV === 'production') {
+  const distPath = join(__dirname, '..', 'dist');
+  app.use(express.static(distPath));
+  app.get(/^(?!\/api).*/, (_req, res) => {
+    res.sendFile(join(distPath, 'index.html'));
+  });
+}
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 
-const PORT = 3001;
+// Use PORT from environment (required by Render / Railway / Fly.io),
+// fallback to 3001 for local development.
+const PORT = Number(process.env.PORT) || 3001;
 app.listen(PORT, () =>
-  console.log(`FocusIn backend running on http://localhost:${PORT}`)
+  console.log(`FocusIn backend running on http://localhost:${PORT} [${process.env.NODE_ENV || 'development'}]`)
 );
